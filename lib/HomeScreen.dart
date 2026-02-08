@@ -31,6 +31,25 @@ class _HomeScreenState extends State<HomeScreen> {
   String selectedFilter = "All";
   Set<String> savedPlaceIds = {};
   String userRole = "user";
+  Set<String> savedCategories = {};
+
+  Future<List<DocumentSnapshot>> getRecommendations() async {
+    final savedSnapshot =
+    await FirebaseFirestore.instance.collection('SavedPlaces').get();
+
+    if (savedSnapshot.docs.isEmpty) return [];
+
+    final firstSaved = savedSnapshot.docs.first;
+    final category = firstSaved['category'];
+
+    final querySnapshot = await FirebaseFirestore.instance
+        .collection('places')
+        .where('category', isEqualTo: category)
+        .limit(3)
+        .get();
+
+    return querySnapshot.docs;
+  }
 
   void fetchUserRole() async {
     final user = FirebaseAuth.instance.currentUser;
@@ -61,8 +80,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
     setState(() {
       savedPlaceIds = snapshot.docs.map((doc) => doc.id).toSet();
+      savedCategories =
+          snapshot.docs.map((doc) => doc['category'].toString()).toSet();
     });
   }
+
 
 
   void _showFilterOptions(BuildContext context) {
@@ -252,14 +274,36 @@ class _HomeScreenState extends State<HomeScreen> {
           Expanded(
             child: Column(
               children: [
+                FutureBuilder<List<DocumentSnapshot>>(
+                  future: getRecommendations(),
+                  builder: (context, snapshot) {
+                    if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                      return SizedBox();
+                    }
+
+                    final recommendations = snapshot.data!;
+
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+
+                        ),
+                      ],
+                    );
+                  },
+                ),
                 Expanded(
                   child: PlacesList(
                     category: selectedCategory,
                     location: locationController.text.trim(),
                     filter: selectedFilter,
                     savedPlaceIds: savedPlaceIds,
+                    savedCategories: savedCategories,
                     onSaved: fetchSavedPlaces,
                   ),
+
                 ),
                 _buildFooter(),
               ],
@@ -281,28 +325,6 @@ class _HomeScreenState extends State<HomeScreen> {
           topRight: Radius.circular(16),
         ),
       ),
-      child: Column(
-        children: const [
-          Text(
-            "TripTaste",
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-              fontSize: 14,
-            ),
-          ),
-          SizedBox(height: 4),
-          Text(
-            "Discover • Eat • Travel",
-            style: TextStyle(color: Colors.white70, fontSize: 12),
-          ),
-          SizedBox(height: 4),
-          Text(
-            "© 2026 TripTaste",
-            style: TextStyle(color: Colors.white38, fontSize: 10),
-          ),
-        ],
-      ),
     );
   }
 
@@ -314,8 +336,18 @@ class PlacesList extends StatelessWidget {
   final String filter;
   final Set<String> savedPlaceIds;
   final VoidCallback onSaved;
+  final Set<String> savedCategories;
 
-  PlacesList({required this.category, required this.location, required this.filter, required this.savedPlaceIds, required this.onSaved});
+
+  PlacesList({
+    required this.category,
+    required this.location,
+    required this.filter,
+    required this.savedPlaceIds,
+    required this.savedCategories,
+    required this.onSaved,
+  });
+
 
   void toggleSavePlace(DocumentSnapshot place) async {
     final docRef = FirebaseFirestore.instance
@@ -366,86 +398,116 @@ class PlacesList extends StatelessWidget {
           itemBuilder: (context, index) {
             var place = places[index];
             bool isSaved = savedPlaceIds.contains(place.id);
+            bool isRecommended = savedCategories.contains(place['category']);
 
-            return Container(
-              margin: const EdgeInsets.symmetric(vertical: 8),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.08),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: InkWell(
-                borderRadius: BorderRadius.circular(16),
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => PlaceDetailsPage(placeId: place.id),
-                    ),
-                  );
-                },
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Row(
-                    children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
-                        child: CachedNetworkImage(
-                          imageUrl: place['photo_url'],
-                          width: 90,
-                          height: 90,
-                          fit: BoxFit.cover,
-                          placeholder: (context, url) =>
-                          const Center(child: CircularProgressIndicator(strokeWidth: 2)),
-                          errorWidget: (context, url, error) =>
-                          const Icon(Icons.image_not_supported),
-                        ),
 
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              place['name'],
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              place['location'],
-                              maxLines: 2,                     // 👈 only 2 lines
-                              overflow: TextOverflow.ellipsis, // 👈 adds ...
-                              style: const TextStyle(
-                                color: Colors.grey,
-                                fontSize: 13,
-                              ),
-                            ),
-
-                          ],
-                        ),
-                      ),
-                      IconButton(
-                        icon: Icon(
-                          isSaved ? Icons.bookmark : Icons.bookmark_border,
-                          color: const Color(0xFF0B1C2D),
-                        ),
-                        onPressed: () => toggleSavePlace(place),
+            return Stack(
+              children: [
+                Container(
+                  margin: const EdgeInsets.symmetric(vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.08),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
                       ),
                     ],
                   ),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(16),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) =>
+                              PlaceDetailsPage(placeId: place.id),
+                        ),
+                      );
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Row(
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: CachedNetworkImage(
+                              imageUrl: place['photo_url'],
+                              width: 90,
+                              height: 90,
+                              fit: BoxFit.cover,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      place['name'],
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 16,
+                                      ),
+                                    ),
+
+                                    if (isRecommended)
+                                      Padding(
+                                        padding: const EdgeInsets.only(top: 4),
+                                        child: Text(
+                                          "You might also like",
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w600,
+                                            color: Colors.grey[700],
+                                          ),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+
+                                const SizedBox(height: 4),
+                                Text(place['location'],
+                                    style: const TextStyle(color: Colors.grey)),
+                              ],
+                            ),
+                          ),
+                          IconButton(
+                            icon: Icon(
+                              savedPlaceIds.contains(place.id)
+                                  ? Icons.bookmark
+                                  : Icons.bookmark_border,
+                              color: const Color(0xFF0B1C2D),
+                            ),
+                            onPressed: () => toggleSavePlace(place),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 ),
-              ),
+
+                if (isRecommended)
+                  Positioned(
+                    top: 12,
+                    right: 8,
+                    child: Text(
+                      "You might also like",
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.grey.shade700,
+                      ),
+                    ),
+                  ),
+              ],
             );
+
           },
         );
       },
