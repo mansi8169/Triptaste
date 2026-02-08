@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "1089906582252",
+    "project_id": "triptaste-b54e8",
+    "storage_bucket": "triptaste-b54e8.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1089906582252:android:36c8d12a68e802c6167bc9",
+        "android_client_info": {
+          "package_name": "com.example.triptaste_app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "1089906582252-vr7epqc3qrloosaqaktim7mmr2drkjrm.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDC6WvOX6iUW2AAtM1HXieB2UOzbbzu5A8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1089906582252-vr7epqc3qrloosaqaktim7mmr2drkjrm.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
